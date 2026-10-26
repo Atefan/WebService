@@ -2,7 +2,7 @@
 
 from threading import Lock
 
-from app.domain.models import Event, Ticket
+from app.domain.models import Event, Ticket, TicketStatus
 
 
 class InMemoryEventRepository:
@@ -12,16 +12,23 @@ class InMemoryEventRepository:
         self._lock = Lock()  # protects id generation and dict mutation only
 
     def add(self, event: Event) -> Event:
-        raise NotImplementedError
+        with self._lock:
+            event.id = self._next_id
+            self._next_id += 1
+            self._events[event.id] = event
+        return event
 
     def get(self, event_id: int) -> Event | None:
-        raise NotImplementedError
+        with self._lock:
+            return self._events.get(event_id)
 
     def list_all(self) -> list[Event]:
-        raise NotImplementedError
+        with self._lock:
+            return list(self._events.values())
 
     def save(self, event: Event) -> None:
-        raise NotImplementedError
+        with self._lock:
+            self._events[event.id] = event
 
 
 class InMemoryTicketRepository:
@@ -31,13 +38,28 @@ class InMemoryTicketRepository:
         self._lock = Lock()
 
     def add(self, ticket: Ticket) -> Ticket:
-        raise NotImplementedError
+        with self._lock:
+            ticket.id = self._next_id
+            self._next_id += 1
+            self._tickets[ticket.id] = ticket
+        return ticket
 
     def list_by_user(self, user_id: str) -> list[Ticket]:
-        raise NotImplementedError
+        with self._lock:
+            return [t for t in self._tickets.values() if t.user_id == user_id]
 
     def list_by_event(self, event_id: int) -> list[Ticket]:
-        raise NotImplementedError
+        with self._lock:
+            return [t for t in self._tickets.values() if t.event_id == event_id]
 
     def cancel_by_event(self, event_id: int) -> int:
-        raise NotImplementedError
+        """Cancel all ACTIVE tickets of the event and return how many were cancelled."""
+        with self._lock:
+            active = [
+                t
+                for t in self._tickets.values()
+                if t.event_id == event_id and t.status == TicketStatus.ACTIVE
+            ]
+            for ticket in active:
+                ticket.cancel()
+            return len(active)
