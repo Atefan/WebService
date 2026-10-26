@@ -1,6 +1,63 @@
+# Run with the VS Code "REST Client" extension (click "Send Request" above a request).
+# Start the server first: uvicorn app.main:app --reload
+# "owner" is an event owner (OWNER_IDS), any other id is a normal user.
+
 @base = http://127.0.0.1:8000/api/v1
 
 ### Health
 GET {{base}}/health
 
-# TODO: list events, create event (owner), book ticket, my tickets, stats, delete.
+### Create an event (owner)
+POST {{base}}/events
+X-User-Id: owner
+Content-Type: application/json
+
+{
+  "name": "Event1",
+  "availableTickets": 400,
+  "eventDate": "2123-01-04T20:00:00Z"
+}
+
+### List upcoming events (any user)
+GET {{base}}/events
+X-User-Id: alice
+
+### Book 2 tickets for event 1
+POST {{base}}/events/1/tickets
+X-User-Id: alice
+Content-Type: application/json
+
+{ "quantity": 2 }
+
+### Book 1 ticket (body is optional, quantity defaults to 1)
+POST {{base}}/events/1/tickets
+X-User-Id: bob
+
+### My tickets
+GET {{base}}/tickets
+X-User-Id: alice
+
+### Ticket numbers for event 1 (owner of that event)
+GET {{base}}/events/1/stats
+X-User-Id: owner
+
+### Cancel event 1 (owner of that event, safe to repeat)
+DELETE {{base}}/events/1
+X-User-Id: owner
+
+### Error: no X-User-Id -> 401 problem+json
+GET {{base}}/events
+
+### Error: normal user creates an event -> 403
+POST {{base}}/events
+X-User-Id: alice
+Content-Type: application/json
+
+{ "name": "Nope", "availableTickets": 10, "eventDate": "2123-01-04T20:00:00Z" }
+
+### Error: invalid body -> 400 with a list of field errors
+POST {{base}}/events
+X-User-Id: owner
+Content-Type: application/json
+
+{ "name": "Broken", "availableTickets": "many" }

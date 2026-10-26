@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.domain.errors import EventNotFound, Forbidden, ValidationError
+from app.domain.errors import EventAlreadyTookPlace, EventNotFound, Forbidden, ValidationError
 from app.domain.models import EventStatus, TicketStatus
 from tests.conftest import FUTURE, NOW
 
@@ -69,6 +69,23 @@ def test_cancel_by_non_owner_is_forbidden_and_changes_nothing(ctx):
     with pytest.raises(Forbidden):
         ctx.event_service.cancel("mallory", event.id)
     assert event.status == EventStatus.ACTIVE
+
+
+def test_cancel_past_event_is_rejected_and_changes_nothing(ctx):
+    event = create(ctx)
+    ticket = ctx.booking_service.book("alice", event.id, 2)
+    event.event_date = NOW - timedelta(minutes=1)  # the event has taken place
+    with pytest.raises(EventAlreadyTookPlace):
+        ctx.event_service.cancel("owner", event.id)
+    assert event.status == EventStatus.ACTIVE
+    assert ticket.status == TicketStatus.ACTIVE
+
+
+def test_repeating_cancel_after_the_date_is_still_a_no_op(ctx):
+    event = create(ctx)
+    ctx.event_service.cancel("owner", event.id)
+    event.event_date = NOW - timedelta(days=1)
+    ctx.event_service.cancel("owner", event.id)  # already cancelled, so no error
 
 
 def test_cancel_unknown_event_raises_not_found(ctx):

@@ -23,3 +23,7 @@ class EventNotFound(DomainError):
 
 class SoldOut(DomainError):
     """Not enough tickets left for the requested quantity."""
+
+
+class EventAlreadyTookPlace(DomainError):
+    """The event date has passed, so the event can no longer be cancelled."""

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from threading import RLock
 
 from app.application.ports import Clock, EventRepository, TicketRepository
-from app.domain.errors import EventNotFound, ValidationError
+from app.domain.errors import EventAlreadyTookPlace, EventNotFound, ValidationError
 from app.domain.models import Event, EventStatus
 
 
@@ -45,7 +45,7 @@ class EventService:
         ]
 
     def cancel(self, user_id: str, event_id: int) -> None:
-        """Under lock: 404 if missing, ensure_owned_by, idempotent, cancel event and its tickets."""
+        """Under lock: 404 if missing, ensure_owned_by, idempotent, 409 if past, cancel event and its tickets."""
         # TODO: multiple processes need a DB transaction instead of this in-process lock.
         with self._lock:
             event = self._events.get(event_id)
@@ -54,6 +54,9 @@ class EventService:
             event.ensure_owned_by(user_id)
             if event.status == EventStatus.CANCELLED:
                 return
+            if event.event_date <= self._clock():
+                # Its tickets were used, so they must not turn into CANCELLED.
+                raise EventAlreadyTookPlace(f"Event {event_id} already took place and cannot be cancelled.")
             event.cancel()
             self._events.save(event)
             self._tickets.cancel_by_event(event_id)
