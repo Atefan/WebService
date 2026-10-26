@@ -22,6 +22,10 @@ Content-Type: application/json
 GET {{base}}/events
 X-User-Id: alice
 
+### Get one event (this is what the Location header of "Create an event" points to)
+GET {{base}}/events/1
+X-User-Id: alice
+
 ### Book 2 tickets for event 1
 POST {{base}}/events/1/tickets
 X-User-Id: alice

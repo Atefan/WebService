@@ -75,6 +75,25 @@ def test_create_event_returns_201_location_and_camel_case(client):
     assert body == {"id": 1, "name": "Event1", "availableTickets": 400, "eventDate": "2123-01-04T20:00:00Z"}
 
 
+def test_location_header_points_to_a_working_url(client):
+    response = client.post("/api/v1/events", json=NEW_EVENT, headers=OWNER)
+    fetched = client.get(response.headers["location"], headers=ALICE)
+    assert fetched.status_code == 200
+    assert fetched.json() == response.json()
+
+
+def test_get_event_unknown_or_cancelled_is_404(client):
+    event = create_event(client)
+    client.delete(f"/api/v1/events/{event['id']}", headers=OWNER)
+    assert_problem(client.get(f"/api/v1/events/{event['id']}", headers=ALICE), 404, "event_not_found")
+    assert_problem(client.get("/api/v1/events/99", headers=ALICE), 404, "event_not_found")
+
+
+def test_get_event_requires_user_id(client):
+    event = create_event(client)
+    assert_problem(client.get(f"/api/v1/events/{event['id']}"), 401, "unauthorized")
+
+
 def test_list_events_shows_available_tickets(client):
     event = create_event(client)
     client.post(f"/api/v1/events/{event['id']}/tickets", json={"quantity": 3}, headers=ALICE)
@@ -93,6 +112,14 @@ def test_invalid_body_is_400_with_field_errors(client):
     body = assert_problem(response, 400, "validation_error")
     fields = {e["field"] for e in body["errors"]}
     assert fields == {"availableTickets", "eventDate"}
+
+
+def test_malformed_json_is_400(client):
+    response = client.post(
+        "/api/v1/events", content="{not json", headers={**OWNER, "Content-Type": "application/json"}
+    )
+    body = assert_problem(response, 400, "validation_error")
+    assert [e["field"] for e in body["errors"]] == ["body"]
 
 
 # --- tickets ------------------------------------------------------------------------------------

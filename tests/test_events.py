@@ -48,6 +48,21 @@ def test_list_upcoming_excludes_cancelled_and_past_events(ctx):
     assert ctx.event_service.list_upcoming() == [upcoming]
 
 
+def test_get_returns_upcoming_event(ctx):
+    event = create(ctx)
+    assert ctx.event_service.get(event.id) is event
+
+
+def test_get_hides_unknown_cancelled_and_past_events(ctx):
+    cancelled = create(ctx, name="cancelled")
+    ctx.event_service.cancel("owner", cancelled.id)
+    past = create(ctx, name="past")
+    past.event_date = NOW - timedelta(days=1)
+    for event_id in (99, cancelled.id, past.id):
+        with pytest.raises(EventNotFound):
+            ctx.event_service.get(event_id)
+
+
 def test_list_upcoming_keeps_sold_out_events(ctx):
     event = create(ctx, capacity=2)
     ctx.booking_service.book("alice", event.id, 2)

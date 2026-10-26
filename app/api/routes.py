@@ -46,6 +46,18 @@ def create_router(event_service: EventService, booking_service: BookingService) 
     def list_events() -> list[EventOut]:
         return [EventOut.from_domain(e) for e in event_service.list_upcoming()]
 
+    @router.get(
+        "/events/{event_id}",
+        response_model=EventOut,
+        tags=["events"],
+        dependencies=[Depends(get_caller)],
+        summary="Get one event",
+        description="Same visibility as the list: cancelled and past events return 404.",
+        responses={401: _UNAUTHORIZED, 404: _NOT_FOUND},
+    )
+    def get_event(event_id: int) -> EventOut:
+        return EventOut.from_domain(event_service.get(event_id))
+
     @router.post(
         "/events",
         response_model=EventOut,

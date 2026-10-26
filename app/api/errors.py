@@ -62,7 +62,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def on_invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
         errors = [
-            {"field": ".".join(str(part) for part in e["loc"][1:]) or "body", "message": e["msg"]}
+            {"field": _field_name(e), "message": e["msg"]}
             for e in exc.errors()
         ]
         return problem(
@@ -87,6 +87,13 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     _hide_default_422_from_docs(app)
+
+
+def _field_name(error: dict) -> str:
+    """'body.eventDate' -> 'eventDate'. Unparsable JSON has the error position as its loc, so call it 'body'."""
+    if error["type"] == "json_invalid":
+        return "body"
+    return ".".join(str(part) for part in error["loc"][1:]) or "body"
 
 
 def _hide_default_422_from_docs(app: FastAPI) -> None:

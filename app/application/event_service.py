@@ -39,10 +39,18 @@ class EventService:
     def list_upcoming(self) -> list[Event]:
         """ACTIVE events with event_date > now. Sold-out events are included."""
         now = self._clock()
-        return [
-            e for e in self._events.list_all()
-            if e.status == EventStatus.ACTIVE and e.event_date > now
-        ]
+        return [e for e in self._events.list_all() if self._is_upcoming(e, now)]
+
+    def get(self, event_id: int) -> Event:
+        """404 unless the event is upcoming, so it is visible under the same rule as list_upcoming."""
+        event = self._events.get(event_id)
+        if event is None or not self._is_upcoming(event, self._clock()):
+            raise EventNotFound(f"Event {event_id} not found.")
+        return event
+
+    @staticmethod
+    def _is_upcoming(event: Event, now: datetime) -> bool:
+        return event.status == EventStatus.ACTIVE and event.event_date > now
 
     def cancel(self, user_id: str, event_id: int) -> None:
         """Under lock: 404 if missing, ensure_owned_by, idempotent, 409 if past, cancel event and its tickets."""
