@@ -1,0 +1,6 @@
+@base = http://127.0.0.1:8000/api/v1
+
+### Health
+GET {{base}}/health
+
+# TODO: list events, create event (owner), book ticket, my tickets, stats, delete.
